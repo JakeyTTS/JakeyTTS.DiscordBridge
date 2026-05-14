@@ -2,6 +2,9 @@
     x:Class="JakeyTTS.DiscordBridge.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
     Title="JakeyTTS - Discord Bridge">
 
     <Window.SystemBackdrop>
@@ -14,65 +17,42 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Custom Modern Title Bar -->
         <Grid x:Name="AppTitleBar" Height="40" VerticalAlignment="Top">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-
-            <Image Source="Assets/Square44x44Logo.scale-200.png" 
-                   Width="20" Height="20" 
-                   Margin="12,0,12,0"
-                   VerticalAlignment="Center"/>
-
-            <TextBlock Grid.Column="1" 
-                       Text="JakeyTTS - Discord Bridge" 
-                       VerticalAlignment="Center" 
-                       FontSize="12" 
-                       FontWeight="SemiBold"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <Image Source="Assets/Square44x44Logo.scale-200.png" Width="20" Height="20" Margin="12,0,12,0" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Text="JakeyTTS - Discord Bridge" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </Grid>
 
-        <NavigationView x:Name="NavView" 
-                        Grid.Row="1"
-                        ItemInvoked="NavView_ItemInvoked" 
-                        IsBackButtonVisible="Collapsed"
-                        PaneDisplayMode="Left"
-                        Background="Transparent">
-
+        <NavigationView x:Name="NavView" Grid.Row="1" ItemInvoked="NavView_ItemInvoked" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" Background="Transparent">
             <NavigationView.MenuItems>
                 <NavigationViewItem Tag="Home" Content="Dashboard" Icon="Home" />
                 <NavigationViewItem Tag="Events" Content="Broadcast Events" Icon="Audio" />
+                <NavigationViewItem Tag="Commands" Content="Discord Commands" Icon="Message" />
             </NavigationView.MenuItems>
 
             <Grid Padding="30">
-                <!-- 1. DASHBOARD -->
                 <Grid x:Name="HomePage" Visibility="Visible">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-
                     <StackPanel Orientation="Horizontal" Spacing="15" Margin="0,0,0,20">
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE767;" FontSize="28" Foreground="MediumOrchid"/>
                         <TextBlock Text="Discord Voice Bridge" Style="{StaticResource TitleTextBlockStyle}" FontWeight="Bold"/>
                     </StackPanel>
-
                     <Grid Grid.Row="1" Margin="0,0,0,20">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Button x:Name="ConnectBtn" Content="Start Bot" Click="ConnectBtn_Click" 
-                                    Style="{StaticResource AccentButtonStyle}" Width="120"/>
-                            <Button x:Name="DisconnectBtn" Content="Stop" Click="DisconnectBtn_Click" 
-                                    IsEnabled="False" Width="100"/>
+                            <Button x:Name="ConnectBtn" Content="Start Bot" Click="ConnectBtn_Click" Style="{StaticResource AccentButtonStyle}" Width="120"/>
+                            <Button x:Name="DisconnectBtn" Content="Stop" Click="DisconnectBtn_Click" IsEnabled="False" Width="100"/>
                         </StackPanel>
-
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="20" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Ellipse x:Name="DiscordStatusDot" Width="10" Height="10" Fill="Red"/>
@@ -84,21 +64,14 @@
                             </StackPanel>
                         </StackPanel>
                     </Grid>
-
-                    <Border Grid.Row="2" Background="{ThemeResource LayerFillColorDefaultBrush}" 
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
-                        <TextBox x:Name="LogBlock" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
-                                 PlaceholderText="System logs will appear here..."
-                                 BorderThickness="0" FontSize="12" FontFamily="Cascadia Code, Consolas"/>
+                    <Border Grid.Row="2" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                        <TextBox x:Name="LogBlock" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" PlaceholderText="System logs..." BorderThickness="0" FontSize="12" FontFamily="Cascadia Code, Consolas"/>
                     </Border>
                 </Grid>
 
-                <!-- 2. EVENTS (Added Toggled events to sync with server) -->
                 <Grid x:Name="EventsPage" Visibility="Collapsed">
                     <StackPanel Spacing="20">
                         <TextBlock Text="Broadcasting Preferences" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
-                        <TextBlock Text="Toggle which events are sent to your Discord call in real-time." Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-
                         <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
                             <StackPanel Spacing="15">
                                 <ToggleSwitch x:Name="ToggleTest" Header="Test Audio &amp; Previews" IsOn="True" Toggled="EventToggle_Toggled" />
@@ -112,28 +85,62 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- 3. SETTINGS -->
-                <Grid x:Name="SettingsPage" Visibility="Collapsed">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.5*"/>
-                        <ColumnDefinition Width="1*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Spacing="20" Padding="0,0,20,0">
-                        <TextBlock Text="Bot Configuration" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
-                        <PasswordBox x:Name="TokenBox" Header="Discord Bot Token" PlaceholderText="Paste token here..." PasswordRevealMode="Peek"/>
-                        <Button x:Name="InviteBtn" Content="Invite Bot to Server" Click="InviteBtn_Click" IsEnabled="False" Style="{StaticResource AccentButtonStyle}"/>
+                <Grid x:Name="CommandsPage" Visibility="Collapsed">
+                    <StackPanel Spacing="20">
+                        <TextBlock Text="Slash Command Management" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
+                            <StackPanel Spacing="15">
+                                <ToggleSwitch x:Name="ToggleJoinCmd" Header="/join - Joins your voice channel" IsOn="True" />
+                                <ToggleSwitch x:Name="ToggleLeaveCmd" Header="/leave - Leaves the voice channel" IsOn="True" />
+                                <ToggleSwitch x:Name="ToggleSpeakCmd" Header="/speak - Synthesize text in call" IsOn="True" />
+                                <ToggleSwitch x:Name="ToggleFileCmd" Header="/file - Send audio file to chat" IsOn="True" />
+                                <Button Content="Sync Discord Commands" Click="UpdateCommands_Click" Style="{StaticResource AccentButtonStyle}" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
+                </Grid>
 
-                    <Border Grid.Column="1" Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="Quick Setup Guide" FontWeight="Bold" FontSize="16"/>
-                            <TextBlock Text="1. Create a Bot in Discord Developer Portal." FontSize="13" TextWrapping="Wrap"/>
-                            <HyperlinkButton Content="Open Portal" Click="OpenPortalBtn_Click" FontSize="13"/>
-                            <TextBlock Text="2. Turn ON 'Message Content Intent' in the Bot tab." Foreground="OrangeRed" FontWeight="Bold" FontSize="13" TextWrapping="Wrap"/>
-                            <TextBlock Text="3. Paste token and click Invite." FontSize="13" TextWrapping="Wrap"/>
+                <Grid x:Name="SettingsPage" Visibility="Collapsed">
+                    <ScrollViewer>
+                        <StackPanel Spacing="20" MaxWidth="800" HorizontalAlignment="Left">
+                            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
+                                <StackPanel Spacing="15">
+                                    <TextBlock Text="Connection Settings" FontWeight="Bold" FontSize="16"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <PasswordBox x:Name="TokenBox" Header="Discord Bot Token" PlaceholderText="Paste token here..." VerticalAlignment="Bottom"/>
+                                        <Button Grid.Column="1" Click="ShowTokenInstructions_Click" Margin="8,0,0,0" VerticalAlignment="Bottom" Padding="8" Background="Transparent" BorderThickness="0">
+                                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE946;" FontSize="16"/>
+                                        </Button>
+                                    </Grid>
+                                    <TextBox x:Name="ServerUrlBox" Header="JakeyTTS WebSocket URL" PlaceholderText="ws://localhost:8889/"/>
+                                    <Button x:Name="InviteBtn" Content="Invite Bot to Server" Click="InviteBtn_Click" IsEnabled="False" Style="{StaticResource AccentButtonStyle}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
+                                <StackPanel Spacing="15">
+                                    <TextBlock Text="Appearance" FontWeight="Bold" FontSize="16"/>
+                                    <ComboBox x:Name="ThemeBox" Header="Application Theme" SelectionChanged="ThemeBox_SelectionChanged" HorizontalAlignment="Stretch">
+                                        <ComboBoxItem Content="System Default"/>
+                                        <ComboBoxItem Content="Light Mode"/>
+                                        <ComboBoxItem Content="Dark Mode"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Info" FontWeight="Bold"/>
+                                    <TextBlock Text="Commands are registered as Global Slash Commands (/). Click Sync to update them." FontSize="13"/>
+                                    <HyperlinkButton Content="Discord Developer Portal" Click="OpenPortalBtn_Click" FontSize="12"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
-                    </Border>
+                    </ScrollViewer>
                 </Grid>
             </Grid>
         </NavigationView>
