@@ -9,14 +9,14 @@
   IgnorableNamespaces="uap rescap systemai">
 
   <Identity
-    Name="b952b0ef-271b-492f-84f6-7a5ab15724b2"
+    Name="JakeyTTS.DIscordBridge"
     Publisher="CN=david"
-    Version="1.0.0.0" />
+    Version="1.0.2.0" />
 
   <mp:PhoneIdentity PhoneProductId="b952b0ef-271b-492f-84f6-7a5ab15724b2" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>JakeyTTS.DiscordBridge</DisplayName>
+    <DisplayName>DiscordBridge</DisplayName>
     <PublisherDisplayName>david</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -35,7 +35,7 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="JakeyTTS.DiscordBridge"
+        DisplayName="DiscordBridge"
         Description="JakeyTTS.DiscordBridge"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
