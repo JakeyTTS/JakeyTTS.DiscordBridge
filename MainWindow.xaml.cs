@@ -228,13 +228,40 @@ namespace JakeyTTS.DiscordBridge
         private async Task SendRegistrationUpdate()
         {
             if (_webSocket?.State != WebSocketState.Open) return;
+
             List<string> subs = new List<string>();
-            _dispatcher.TryEnqueue(() => {
-                if (ToggleTest.IsOn) subs.Add("test"); if (ToggleCommands.IsOn) subs.Add("commands"); if (ToggleRedeems.IsOn) subs.Add("redeems");
-                if (ToggleBits.IsOn) subs.Add("bits"); if (ToggleSubs.IsOn) subs.Add("subs"); if (ToggleChat.IsOn) subs.Add("chat");
+
+            // Use the EnqueueAsync extension to wait for the UI thread to finish gathering toggles
+            await _dispatcher.EnqueueAsync(() =>
+            {
+                if (ToggleTest.IsOn) subs.Add("test");
+                if (ToggleCommands.IsOn) subs.Add("commands");
+                if (ToggleRedeems.IsOn) subs.Add("redeems");
+                if (ToggleBits.IsOn) subs.Add("bits");
+                if (ToggleSubs.IsOn) subs.Add("subs");
+                if (ToggleChat.IsOn) subs.Add("chat");
             });
-            var reg = new PluginRegisterMsg { type = "register", payload = new PluginRegisterPayload { id = PluginId, name = PluginName, icon_base64 = _appIconBase64, subscriptions = subs.ToArray() } };
-            await _webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(reg, PluginJsonContext.Default.PluginRegisterMsg))), WebSocketMessageType.Text, true, _cts.Token);
+
+            var reg = new PluginRegisterMsg
+            {
+                type = "register",
+                payload = new PluginRegisterPayload
+                {
+                    id = PluginId,
+                    name = PluginName,
+                    icon_base64 = _appIconBase64,
+                    subscriptions = subs.ToArray()
+                }
+            };
+
+            string json = JsonSerializer.Serialize(reg, PluginJsonContext.Default.PluginRegisterMsg);
+            await _webSocket.SendAsync(
+                new ArraySegment<byte>(Encoding.UTF8.GetBytes(json)),
+                WebSocketMessageType.Text,
+                true,
+                _cts.Token);
+
+            Log($"📡 Sent registration with {subs.Count} subscriptions.");
         }
         #endregion
 
