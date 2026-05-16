@@ -86,18 +86,48 @@
                 </Grid>
 
                 <Grid x:Name="CommandsPage" Visibility="Collapsed">
-                    <StackPanel Spacing="20">
-                        <TextBlock Text="Slash Command Management" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
-                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
-                            <StackPanel Spacing="15">
-                                <ToggleSwitch x:Name="ToggleJoinCmd" Header="/join - Joins your voice channel" IsOn="True" />
-                                <ToggleSwitch x:Name="ToggleLeaveCmd" Header="/leave - Leaves the voice channel" IsOn="True" />
-                                <ToggleSwitch x:Name="ToggleSpeakCmd" Header="/speak - Synthesize text in call" IsOn="True" />
-                                <ToggleSwitch x:Name="ToggleFileCmd" Header="/file - Send audio file to chat" IsOn="True" />
-                                <Button Content="Sync Discord Commands" Click="UpdateCommands_Click" Style="{StaticResource AccentButtonStyle}" Margin="0,10,0,0"/>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
+                    <ScrollViewer>
+                        <StackPanel Spacing="20">
+                            <TextBlock Text="Slash Command Management" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
+                                <StackPanel Spacing="15">
+                                    <TextBlock Text="Standard TTS Commands" FontWeight="SemiBold" FontSize="14" Opacity="0.8"/>
+                                    <ToggleSwitch x:Name="ToggleJoinCmd" Header="/join - Joins your voice channel" IsOn="True" />
+                                    <ToggleSwitch x:Name="ToggleLeaveCmd" Header="/leave - Leaves the voice channel" IsOn="True" />
+                                    <ToggleSwitch x:Name="ToggleSpeakCmd" Header="/speak - Synthesize text in call" IsOn="True" />
+                                    <ToggleSwitch x:Name="ToggleFileCmd" Header="/file - Send audio file to chat" IsOn="True" />
+
+                                    <MenuFlyoutSeparator Margin="0,10"/>
+
+                                    <TextBlock Text="Administrative Permissions Helpers" FontWeight="SemiBold" FontSize="14" Opacity="0.8"/>
+                                    <ToggleSwitch x:Name="ToggleAllowChannelCmd" Header="/allow-this-channel - Authorize text channels dynamically" IsOn="True" />
+                                    <ToggleSwitch x:Name="ToggleAllowRoleCmd" Header="/allow-role - Authorize server roles dynamically" IsOn="True" />
+                                    <ToggleSwitch x:Name="ToggleClearPermsCmd" Header="/clear-permissions - Reset barriers to Open Mode" IsOn="True" />
+
+                                    <Button Content="Sync Discord Commands" Click="UpdateCommands_Click" Style="{StaticResource AccentButtonStyle}" Margin="0,15,0,0" HorizontalAlignment="Left"/>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="Access &amp; Security Permissions Data" Style="{StaticResource BodyTextBlockStyle}" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
+                                <StackPanel Spacing="15">
+                                    <TextBox x:Name="AllowedChannelsBox" 
+                             Header="Allowed Channel IDs (Leave empty for all)" 
+                             PlaceholderText="e.g., 1122334455667788, 9988776655443322" 
+                             LostFocus="Permissions_Changed"/>
+
+                                    <TextBox x:Name="AllowedRolesBox" 
+                             Header="Allowed Role IDs (Leave empty for all)" 
+                             PlaceholderText="e.g., 5544332211009988, 1122446688001122" 
+                             LostFocus="Permissions_Changed"/>
+
+                                    <TextBlock Text="ℹ Leave fields blank to allow unrestricted use across the entire server. Separate multiple IDs with commas." 
+                               FontSize="12" Opacity="0.6" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
 
                 <Grid x:Name="SettingsPage" Visibility="Collapsed">

@@ -37,6 +37,10 @@ namespace JakeyTTS.DiscordBridge
         private const string PluginId = "discord-bridge-winui";
         private const string PluginName = "Discord Voice Bridge";
 
+        // Persistencia local de restricciones de seguridad
+        private List<string> _allowedChannelIds = new();
+        private List<string> _allowedRoleIds = new();
+
         public MainWindow()
         {
             this.InitializeComponent();
@@ -49,6 +53,15 @@ namespace JakeyTTS.DiscordBridge
             var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
             TokenBox.Password = settings.Values["BotToken"]?.ToString() ?? "";
             ServerUrlBox.Text = settings.Values["WsUrl"]?.ToString() ?? "ws://localhost:8889/";
+
+            // Cargar listas guardadas como texto delimitado por comas
+            string savedChannels = settings.Values["AllowedChannels"]?.ToString() ?? "";
+            string savedRoles = settings.Values["AllowedRoles"]?.ToString() ?? "";
+            _allowedChannelIds = savedChannels.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+            _allowedRoleIds = savedRoles.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+
+            AllowedChannelsBox.Text = string.Join(", ", _allowedChannelIds);
+            AllowedRolesBox.Text = string.Join(", ", _allowedRoleIds);
 
             int savedTheme = (int)(settings.Values["AppTheme"] ?? 0);
             ThemeBox.SelectedIndex = savedTheme;
@@ -63,6 +76,7 @@ namespace JakeyTTS.DiscordBridge
             }
             catch { }
 
+            InviteBtn.IsEnabled = TokenBox.Password.Contains(".");
             TokenBox.PasswordChanged += (s, e) => { InviteBtn.IsEnabled = TokenBox.Password.Contains("."); };
             NavView.SelectedItem = NavView.MenuItems[0];
         }
@@ -76,6 +90,32 @@ namespace JakeyTTS.DiscordBridge
             }
             catch { }
         }
+
+        private void Permissions_Changed(object sender, RoutedEventArgs e)
+        {
+            _allowedChannelIds = AllowedChannelsBox.Text.Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+            _allowedRoleIds = AllowedRolesBox.Text.Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+            SavePermissions();
+        }
+
+        private void SavePermissions()
+        {
+            var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            settings.Values["AllowedChannels"] = string.Join(",", _allowedChannelIds);
+            settings.Values["AllowedRoles"] = string.Join(",", _allowedRoleIds);
+
+            _dispatcher.TryEnqueue(() =>
+            {
+                AllowedChannelsBox.Text = string.Join(", ", _allowedChannelIds);
+                AllowedRolesBox.Text = string.Join(", ", _allowedRoleIds);
+            });
+        }
+
+        // CORRECCIÓN: Restaurado el método LogUI nativo que faltaba en el contexto de compilación
+        private void Log(string msg) => _dispatcher.TryEnqueue(() => {
+            LogBlock.Text += $"[{DateTime.Now:HH:mm:ss}] {msg}\r\n";
+            LogBlock.Select(LogBlock.Text.Length, 0);
+        });
 
         #region UI Logic & Instructions
         private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
@@ -127,11 +167,6 @@ namespace JakeyTTS.DiscordBridge
             Windows.Storage.ApplicationData.Current.LocalSettings.Values["AppTheme"] = ThemeBox.SelectedIndex;
             ApplyTheme(ThemeBox.SelectedIndex);
         }
-
-        private void Log(string msg) => _dispatcher.TryEnqueue(() => {
-            LogBlock.Text += $"[{DateTime.Now:HH:mm:ss}] {msg}\r\n";
-            LogBlock.Select(LogBlock.Text.Length, 0);
-        });
 
         private async void OpenPortalBtn_Click(object sender, RoutedEventArgs e) => await Windows.System.Launcher.LaunchUriAsync(new Uri("https://discord.com/developers/applications"));
 
@@ -208,13 +243,13 @@ namespace JakeyTTS.DiscordBridge
                                 if (cmd.Data.Name == "file")
                                 {
                                     using var uploadStream = new MemoryStream(audioBytes);
-                                    uploadStream.Position = 0; // Fix silent file
+                                    uploadStream.Position = 0;
                                     await cmd.FollowupWithFileAsync(uploadStream, "jakey_tts.wav", "🔊 Your audio is ready!");
                                 }
                                 else if (cmd.Data.Name == "speak")
                                 {
-                                    await StreamToDiscord(audioBytes);
-                                    await cmd.FollowupAsync("🎙 Audio streamed.");
+                                    // CORRECCIÓN: Invocado de forma asíncrona segura con await directo en el loop
+                                    await OrientationsSpeak(cmd, audioBytes);
                                 }
                             }
                             _pendingRequests.Remove(reqId);
@@ -225,13 +260,19 @@ namespace JakeyTTS.DiscordBridge
             }
         }
 
+        // CORRECCIÓN: Añadido modificador 'async Task' para resolver el error del operador await
+        private async Task OrientationsSpeak(SocketSlashCommand cmd, byte[] audioBytes)
+        {
+            await StreamToDiscord(audioBytes);
+            await cmd.FollowupAsync("🎙 Audio streamed.");
+        }
+
         private async Task SendRegistrationUpdate()
         {
             if (_webSocket?.State != WebSocketState.Open) return;
 
             List<string> subs = new List<string>();
 
-            // Use the EnqueueAsync extension to wait for the UI thread to finish gathering toggles
             await _dispatcher.EnqueueAsync(() =>
             {
                 if (ToggleTest.IsOn) subs.Add("test");
@@ -249,7 +290,7 @@ namespace JakeyTTS.DiscordBridge
                 {
                     id = PluginId,
                     name = PluginName,
-                    icon_base64 = _appIconBase64,
+                    icon = _appIconBase64,
                     subscriptions = subs.ToArray()
                 }
             };
@@ -271,11 +312,24 @@ namespace JakeyTTS.DiscordBridge
         private async Task RegisterSlashCommands()
         {
             var commands = new List<SlashCommandProperties>();
+
+            // Comandos estándar de TTS evaluados desde la UI
             if (ToggleJoinCmd.IsOn) commands.Add(new SlashCommandBuilder().WithName("join").WithDescription("Join voice").Build());
             if (ToggleLeaveCmd.IsOn) commands.Add(new SlashCommandBuilder().WithName("leave").WithDescription("Leave voice").Build());
             if (ToggleSpeakCmd.IsOn) commands.Add(new SlashCommandBuilder().WithName("speak").WithDescription("TTS in call").AddOption("text", ApplicationCommandOptionType.String, "What to say", isRequired: true).Build());
             if (ToggleFileCmd.IsOn) commands.Add(new SlashCommandBuilder().WithName("file").WithDescription("TTS to file").AddOption("text", ApplicationCommandOptionType.String, "Text for file", isRequired: true).Build());
-            try { await _discordClient.BulkOverwriteGlobalApplicationCommandsAsync(commands.ToArray()); Log("✅ Commands synced."); } catch { }
+
+            // Comandos de barra de administración evaluados dinámicamente desde los nuevos interruptores lógicos de la UI
+            if (ToggleAllowChannelCmd.IsOn) commands.Add(new SlashCommandBuilder().WithName("allow-this-channel").WithDescription("Authorize this text channel to execute TTS bridge requests").Build());
+            if (ToggleAllowRoleCmd.IsOn) commands.Add(new SlashCommandBuilder().WithName("allow-role").WithDescription("Authorize a security role to use the TTS system").AddOption("target-role", ApplicationCommandOptionType.Role, "The guild role to explicitly authorize", isRequired: true).Build());
+            if (ToggleClearPermsCmd.IsOn) commands.Add(new SlashCommandBuilder().WithName("clear-permissions").WithDescription("Wipe all active restrictions and enter Open Server Mode").Build());
+
+            try
+            {
+                await _discordClient.BulkOverwriteGlobalApplicationCommandsAsync(commands.ToArray());
+                Log($"¼ Synced {commands.Count} slash commands successfully with Discord.");
+            }
+            catch (Exception ex) { Log($"â Œ Command sync failed: {ex.Message}"); }
         }
 
         private async Task StartDiscord(string token)
@@ -286,6 +340,69 @@ namespace JakeyTTS.DiscordBridge
                 _discordClient.Connected += () => { _dispatcher.TryEnqueue(() => DiscordStatusDot.Fill = new SolidColorBrush(Colors.Green)); return Task.CompletedTask; };
                 _discordClient.Ready += async () => { await RegisterSlashCommands(); };
                 _discordClient.SlashCommandExecuted += async (cmd) => {
+
+                    // 1. EVALUAR COMANDOS DE BARRA ADMINISTRATIVOS (Requieren privilegios de Administrador del servidor)
+                    if (cmd.Data.Name == "allow-this-channel" || cmd.Data.Name == "allow-role" || cmd.Data.Name == "clear-permissions")
+                    {
+                        if (cmd.User is IGuildUser adminUser && !adminUser.GuildPermissions.Administrator)
+                        {
+                            await cmd.RespondAsync("â Œ Intercepted: You require administrative server privileges to execute this command.", ephemeral: true);
+                            return;
+                        }
+
+                        if (cmd.Data.Name == "allow-this-channel")
+                        {
+                            string cid = cmd.ChannelId.ToString();
+                            if (!_allowedChannelIds.Contains(cid))
+                            {
+                                _allowedChannelIds.Add(cid);
+                                SavePermissions();
+                                Log($"🛡 Channel {cid} authorized via /allow-this-channel.");
+                            }
+                            await cmd.RespondAsync($"âœ… Channel <#{cid}> has been authorized for TTS commands successfully.", ephemeral: false);
+                        }
+                        else if (cmd.Data.Name == "allow-role")
+                        {
+                            if (cmd.Data.Options.First().Value is IRole role)
+                            {
+                                string rid = role.Id.ToString();
+                                if (!_allowedRoleIds.Contains(rid))
+                                {
+                                    _allowedRoleIds.Add(rid);
+                                    SavePermissions();
+                                    Log($"🛡 Role {role.Name} ({rid}) authorized via /allow-role.");
+                                }
+                                await cmd.RespondAsync($"âœ… Role **{role.Name}** has been authorized for TTS commands successfully.", ephemeral: false);
+                            }
+                        }
+                        else if (cmd.Data.Name == "clear-permissions")
+                        {
+                            _allowedChannelIds.Clear();
+                            _allowedRoleIds.Clear();
+                            SavePermissions();
+                            Log("🛡 Permission barriers cleaned. System running in Unrestricted Access Mode.");
+                            await cmd.RespondAsync("âš⚠️ All permission constraints have been wiped. System running in Unrestricted Access Mode.", ephemeral: false);
+                        }
+                        return;
+                    }
+
+                    // 2. FILTRADO CONVENCIONAL DE SEGURIDAD PARA COMANDOS TTS TRADICIONALES
+                    if (_allowedChannelIds.Any() && !_allowedChannelIds.Contains(cmd.ChannelId.ToString()))
+                    {
+                        await cmd.RespondAsync("â Œ Access Denied: This text channel is not authorized to emit speech requests.", ephemeral: true);
+                        return;
+                    }
+
+                    if (_allowedRoleIds.Any() && cmd.User is IGuildUser guildUser)
+                    {
+                        bool hasRole = guildUser.RoleIds.Any(roleId => _allowedRoleIds.Contains(roleId.ToString()));
+                        if (!hasRole)
+                        {
+                            await cmd.RespondAsync("â Œ Access Denied: You do not possess any of the permitted roles to process TTS commands.", ephemeral: true);
+                            return;
+                        }
+                    }
+
                     await cmd.DeferAsync();
                     _ = Task.Run(async () => {
                         try
@@ -306,7 +423,7 @@ namespace JakeyTTS.DiscordBridge
                             }
                             else if (cmd.Data.Name == "speak" || cmd.Data.Name == "file")
                             {
-                                if (cmd.Data.Name == "speak" && _discordAudioStream == null) { await cmd.FollowupAsync("❌ Join voice first."); return; }
+                                if (cmd.Data.Name == "speak" && _discordAudioStream == null) { await cmd.FollowupAsync("â Œ Join voice first."); return; }
                                 _pendingRequests[reqId] = cmd;
                                 await RequestJakeyTts(cmd.Data.Options.First().Value.ToString()!, reqId);
                             }
@@ -345,9 +462,17 @@ namespace JakeyTTS.DiscordBridge
         private async void ConnectBtn_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(TokenBox.Password)) return;
-            _retryCount = 0; _cts = new CancellationTokenSource();
-            ConnectBtn.IsEnabled = false; DisconnectBtn.IsEnabled = true;
-            _ = StartDiscord(TokenBox.Password); _ = ConnectToJakeyTtsLoop();
+
+            var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            settings.Values["BotToken"] = TokenBox.Password;
+
+            _retryCount = 0;
+            _cts = new CancellationTokenSource();
+            ConnectBtn.IsEnabled = false;
+            DisconnectBtn.IsEnabled = true;
+
+            _ = StartDiscord(TokenBox.Password);
+            _ = ConnectToJakeyTtsLoop();
         }
 
         private async void DisconnectBtn_Click(object sender, RoutedEventArgs e)
@@ -358,11 +483,22 @@ namespace JakeyTTS.DiscordBridge
     }
 
     #region Models
-    public class PluginRegisterPayload { public string id { get; set; } = ""; public string name { get; set; } = ""; public string icon_base64 { get; set; } = ""; public string version { get; set; } = "1.0.0"; public string protocol_version { get; set; } = "1.0"; public string[] subscriptions { get; set; } = Array.Empty<string>(); }
+    public class PluginRegisterPayload { public string id { get; set; } = ""; public string name { get; set; } = ""; [JsonPropertyName("icon")] public string icon { get; set; } = ""; public string version { get; set; } = "1.0.0"; public string protocol_version { get; set; } = "1.0"; public string[] subscriptions { get; set; } = Array.Empty<string>(); }
     public class PluginRegisterMsg { public string type { get; set; } = "register"; public PluginRegisterPayload payload { get; set; } = new(); }
     [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Default, PropertyNamingPolicy = JsonKnownNamingPolicy.Unspecified)]
     [JsonSerializable(typeof(PluginRegisterMsg))]
     internal partial class PluginJsonContext : JsonSerializerContext { }
-    public static class DispatcherQueueExtensions { public static Task EnqueueAsync(this DispatcherQueue dq, Action action) { var tcs = new TaskCompletionSource(); dq.TryEnqueue(() => { try { action(); tcs.SetResult(); } catch (Exception ex) { tcs.SetException(ex); } }); return tcs.Task; } }
+    #endregion
+
+    #region Extensions
+    public static class DispatcherQueueExtensions
+    {
+        public static Task EnqueueAsync(this DispatcherQueue dq, Action action)
+        {
+            var tcs = new TaskCompletionSource();
+            dq.TryEnqueue(() => { try { action(); tcs.SetResult(); } catch (Exception ex) { tcs.SetException(ex); } });
+            return tcs.Task;
+        }
+    }
     #endregion
 }

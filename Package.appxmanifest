@@ -11,7 +11,7 @@
   <Identity
     Name="JakeyTTS.DIscordBridge"
     Publisher="CN=david"
-    Version="1.0.4.0" />
+    Version="1.0.7.0" />
 
   <mp:PhoneIdentity PhoneProductId="b952b0ef-271b-492f-84f6-7a5ab15724b2" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
