@@ -440,8 +440,8 @@ namespace JakeyTTS.DiscordBridge
         private async Task RequestJakeyTts(string text, string reqId)
         {
             if (_webSocket?.State != WebSocketState.Open) return;
-            var req = new { type = "tts_request", request_id = reqId, payload = new { text = text, voice = "default", speed = 1.0f } };
-            await _webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(req))), WebSocketMessageType.Text, true, _cts.Token);
+            var req = new TtsRequestMsg { request_id = reqId, payload = new TtsRequestPayload { text = text, voice = "default", speed = 1.0f } };
+            await _webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(req, PluginJsonContext.Default.TtsRequestMsg))), WebSocketMessageType.Text, true, _cts.Token);
         }
 
         private async Task StreamToDiscord(byte[] wavData)
@@ -485,8 +485,11 @@ namespace JakeyTTS.DiscordBridge
     #region Models
     public class PluginRegisterPayload { public string id { get; set; } = ""; public string name { get; set; } = ""; [JsonPropertyName("icon")] public string icon { get; set; } = ""; public string version { get; set; } = "1.0.0"; public string protocol_version { get; set; } = "1.0"; public string[] subscriptions { get; set; } = Array.Empty<string>(); }
     public class PluginRegisterMsg { public string type { get; set; } = "register"; public PluginRegisterPayload payload { get; set; } = new(); }
+    public class TtsRequestPayload { public string text { get; set; } = ""; public string voice { get; set; } = "default"; public float speed { get; set; } = 1.0f; }
+    public class TtsRequestMsg { public string type { get; set; } = "tts_request"; public string request_id { get; set; } = ""; public TtsRequestPayload payload { get; set; } = new(); }
     [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Default, PropertyNamingPolicy = JsonKnownNamingPolicy.Unspecified)]
     [JsonSerializable(typeof(PluginRegisterMsg))]
+    [JsonSerializable(typeof(TtsRequestMsg))]
     internal partial class PluginJsonContext : JsonSerializerContext { }
     #endregion
 
