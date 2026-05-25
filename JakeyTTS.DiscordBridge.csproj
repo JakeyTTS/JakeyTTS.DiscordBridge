@@ -10,6 +10,8 @@
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
     <WindowsPackageType>None</WindowsPackageType>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <GenerateLibraryLayout>true</GenerateLibraryLayout>
     <WindowsAppSDKSelfContained Condition="'$(Configuration)' == 'Release'">true</WindowsAppSDKSelfContained>
     <WindowsAppSDKSelfContained Condition="'$(Configuration)' == 'Debug'">false</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
@@ -92,4 +94,5 @@
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">False</PublishTrimmed>
   </PropertyGroup>
+
 </Project>
