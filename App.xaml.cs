@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -34,6 +34,10 @@ namespace JakeyTTS.DiscordBridge
         /// </summary>
         public App()
         {
+            this.UnhandledException += (s, e) =>
+            {
+                System.IO.File.WriteAllText("crash.log", e.Exception.ToString());
+            };
             InitializeComponent();
         }
 

@@ -1,9 +1,6 @@
 {
   "profiles": {
-    "JakeyTTS.DiscordBridge (Package)": {
-      "commandName": "MsixPackage"
-    },
-    "JakeyTTS.DiscordBridge (Unpackaged)": {
+    "JakeyTTS.DiscordBridge": {
       "commandName": "Project"
     }
   }

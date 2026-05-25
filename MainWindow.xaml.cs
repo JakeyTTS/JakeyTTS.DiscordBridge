@@ -21,6 +21,22 @@ namespace JakeyTTS.DiscordBridge
 {
     public sealed partial class MainWindow : Window
     {
+        private class AppSettings
+        {
+            private static string SettingsPath = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "JakeyTTS.DiscordBridge", "settings.json");
+            private static Dictionary<string, string> _values = new();
+            static AppSettings()
+            {
+                try { if (System.IO.File.Exists(SettingsPath)) _values = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(System.IO.File.ReadAllText(SettingsPath)) ?? new(); } catch { }
+            }
+            public static string Get(string key, string def = "") => _values.TryGetValue(key, out var val) ? val : def;
+            public static int GetInt(string key, int def = 0) => _values.TryGetValue(key, out var val) && int.TryParse(val, out var i) ? i : def;
+            public static void Set(string key, string val)
+            {
+                _values[key] = val;
+                try { System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(SettingsPath)!); System.IO.File.WriteAllText(SettingsPath, System.Text.Json.JsonSerializer.Serialize(_values)); } catch { }
+            }
+        }
         private DiscordSocketClient _discordClient;
         private ClientWebSocket _webSocket;
         private IAudioClient _currentAudioClient;
@@ -50,20 +66,18 @@ namespace JakeyTTS.DiscordBridge
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(AppTitleBar);
 
-            var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
-            TokenBox.Password = settings.Values["BotToken"]?.ToString() ?? "";
-            ServerUrlBox.Text = settings.Values["WsUrl"]?.ToString() ?? "ws://localhost:8889/";
+            TokenBox.Password = AppSettings.Get("BotToken", "");
+            ServerUrlBox.Text = AppSettings.Get("WsUrl", "ws://localhost:8889/");
 
             // Cargar listas guardadas como texto delimitado por comas
-            string savedChannels = settings.Values["AllowedChannels"]?.ToString() ?? "";
-            string savedRoles = settings.Values["AllowedRoles"]?.ToString() ?? "";
+            string savedChannels = AppSettings.Get("AllowedChannels", "");
+            string savedRoles = AppSettings.Get("AllowedRoles", "");
             _allowedChannelIds = savedChannels.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
             _allowedRoleIds = savedRoles.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+            AllowedChannelsBox.Text = savedChannels;
+            AllowedRolesBox.Text = savedRoles;
 
-            AllowedChannelsBox.Text = string.Join(", ", _allowedChannelIds);
-            AllowedRolesBox.Text = string.Join(", ", _allowedRoleIds);
-
-            int savedTheme = (int)(settings.Values["AppTheme"] ?? 0);
+            int savedTheme = AppSettings.GetInt("AppTheme", 0);
             ThemeBox.SelectedIndex = savedTheme;
             ApplyTheme(savedTheme);
 
@@ -93,16 +107,17 @@ namespace JakeyTTS.DiscordBridge
 
         private void Permissions_Changed(object sender, RoutedEventArgs e)
         {
-            _allowedChannelIds = AllowedChannelsBox.Text.Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-            _allowedRoleIds = AllowedRolesBox.Text.Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-            SavePermissions();
+            _allowedChannelIds = AllowedChannelsBox.Text.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList();
+            _allowedRoleIds = AllowedRolesBox.Text.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList();
+
+            AppSettings.Set("AllowedChannels", string.Join(",", _allowedChannelIds));
+            AppSettings.Set("AllowedRoles", string.Join(",", _allowedRoleIds));
         }
 
         private void SavePermissions()
         {
-            var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
-            settings.Values["AllowedChannels"] = string.Join(",", _allowedChannelIds);
-            settings.Values["AllowedRoles"] = string.Join(",", _allowedRoleIds);
+            AppSettings.Set("AllowedChannels", string.Join(",", _allowedChannelIds));
+            AppSettings.Set("AllowedRoles", string.Join(",", _allowedRoleIds));
 
             _dispatcher.TryEnqueue(() =>
             {
@@ -164,7 +179,8 @@ namespace JakeyTTS.DiscordBridge
 
         private void ThemeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            Windows.Storage.ApplicationData.Current.LocalSettings.Values["AppTheme"] = ThemeBox.SelectedIndex;
+            if (ThemeBox.SelectedIndex == -1) return;
+            AppSettings.Set("AppTheme", ThemeBox.SelectedIndex.ToString());
             ApplyTheme(ThemeBox.SelectedIndex);
         }
 
@@ -185,7 +201,7 @@ namespace JakeyTTS.DiscordBridge
         private async Task ConnectToJakeyTtsLoop()
         {
             string url = ServerUrlBox.Text;
-            Windows.Storage.ApplicationData.Current.LocalSettings.Values["WsUrl"] = url;
+            AppSettings.Set("WsUrl", url);
             while (_cts != null && !_cts.Token.IsCancellationRequested)
             {
                 if (_retryCount >= MaxRetries) { Log("🛑 Failed after 5 attempts."); break; }
@@ -291,7 +307,9 @@ namespace JakeyTTS.DiscordBridge
                     id = PluginId,
                     name = PluginName,
                     icon = _appIconBase64,
-                    subscriptions = subs.ToArray()
+                    subscriptions = subs.ToArray(),
+                    executable_path = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? "",
+                    launch_invisible = true
                 }
             };
 
@@ -463,8 +481,7 @@ namespace JakeyTTS.DiscordBridge
         {
             if (string.IsNullOrWhiteSpace(TokenBox.Password)) return;
 
-            var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
-            settings.Values["BotToken"] = TokenBox.Password;
+            AppSettings.Set("BotToken", TokenBox.Password);
 
             _retryCount = 0;
             _cts = new CancellationTokenSource();
@@ -483,7 +500,7 @@ namespace JakeyTTS.DiscordBridge
     }
 
     #region Models
-    public class PluginRegisterPayload { public string id { get; set; } = ""; public string name { get; set; } = ""; [JsonPropertyName("icon")] public string icon { get; set; } = ""; public string version { get; set; } = "1.0.0"; public string protocol_version { get; set; } = "1.0"; public string[] subscriptions { get; set; } = Array.Empty<string>(); }
+    public class PluginRegisterPayload { public string id { get; set; } = ""; public string name { get; set; } = ""; [JsonPropertyName("icon")] public string icon { get; set; } = ""; public string version { get; set; } = "1.0.0"; public string protocol_version { get; set; } = "1.0"; public string[] subscriptions { get; set; } = Array.Empty<string>(); public string executable_path { get; set; } = ""; public bool launch_invisible { get; set; } = false; }
     public class PluginRegisterMsg { public string type { get; set; } = "register"; public PluginRegisterPayload payload { get; set; } = new(); }
     public class TtsRequestPayload { public string text { get; set; } = ""; public string voice { get; set; } = "default"; public float speed { get; set; } = 1.0f; }
     public class TtsRequestMsg { public string type { get; set; } = "tts_request"; public string request_id { get; set; } = ""; public TtsRequestPayload payload { get; set; } = new(); }
