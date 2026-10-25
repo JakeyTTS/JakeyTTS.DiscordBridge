@@ -139,16 +139,18 @@ namespace JakeyTTS.DiscordBridge
             });
         }
 
+        private string _selectedPermissionGuildId = "";
+
         private void LoadPermissionCandidates()
         {
             _dispatcher.TryEnqueue(() =>
             {
                 _isPopulatingPermissions = true;
-                ServerCardsContainer.Children.Clear();
+                ServerSummaryCards.Children.Clear();
+                DetailCard.Visibility = Visibility.Collapsed;
                 _channelPermissionToggles.Clear();
                 _rolePermissionToggles.Clear();
                 _permissionGuilds.Clear();
-                ServerFilterBox.Items.Clear();
 
                 if (_discordClient?.Guilds == null || !_discordClient.Guilds.Any())
                 {
@@ -158,158 +160,160 @@ namespace JakeyTTS.DiscordBridge
                 }
                 PermissionsStatusText.Text = "";
 
-                ServerFilterBox.Items.Add(new ComboBoxItem { Content = "All servers", Tag = "ALL" });
                 foreach (var guild in _discordClient.Guilds.OrderBy(g => g.Name))
                 {
                     _permissionGuilds.Add(guild);
-                    ServerFilterBox.Items.Add(new ComboBoxItem { Content = guild.Name, Tag = guild.Id.ToString() });
-                }
-                ServerFilterBox.SelectedIndex = 0;
+                    int chCount = guild.TextChannels.Count;
+                    int voiceCount = guild.VoiceChannels.Count;
+                    int allowedCount = guild.TextChannels.Count(c => _allowedChannelIds.Contains(c.Id.ToString()))
+                        + guild.VoiceChannels.Count(c => _allowedChannelIds.Contains(c.Id.ToString()))
+                        + guild.Roles.Count(r => !r.IsEveryone && _allowedRoleIds.Contains(r.Id.ToString()));
 
-                RenderPermissionCards("ALL");
+                    var card = new Border
+                    {
+                        Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
+                        BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
+                        BorderThickness = new Thickness(1),
+                        CornerRadius = new CornerRadius(8),
+                        Padding = new Thickness(16),
+                        HorizontalAlignment = HorizontalAlignment.Stretch
+                    };
+
+                    var grid = new Grid();
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    // Logo
+                    var logo = new Microsoft.UI.Xaml.Controls.Image { Width = 48, Height = 48, Stretch = Stretch.UniformToFill, Margin = new Thickness(0, 0, 12, 0) };
+                    if (!string.IsNullOrWhiteSpace(guild.IconUrl))
+                        logo.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(guild.IconUrl));
+                    Grid.SetColumn(logo, 0);
+                    grid.Children.Add(logo);
+
+                    var info = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+                    info.Children.Add(new TextBlock { Text = guild.Name, FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+                    info.Children.Add(new TextBlock
+                    {
+                        Text = $"Channels: {chCount}    Voice: {voiceCount}    Allowed: {(allowedCount == 0 ? "none" : allowedCount.ToString())}",
+                        FontSize = 12,
+                        Opacity = 0.7
+                    });
+                    Grid.SetColumn(info, 1);
+                    grid.Children.Add(info);
+
+                    var hint = new TextBlock { Text = "View details →", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.6, FontSize = 12 };
+                    Grid.SetColumn(hint, 2);
+                    grid.Children.Add(hint);
+
+                    card.Child = grid;
+
+                    var tapArea = new Microsoft.UI.Xaml.Input.TappedEventHandler((s, e) => ShowPermissionDetail(guild.Id.ToString()));
+                    card.Tapped += tapArea;
+                    card.IsTapEnabled = true;
+
+                    ServerSummaryCards.Children.Add(card);
+                }
+
+                if (_permissionGuilds.Any())
+                    ShowPermissionDetail(_permissionGuilds.OrderBy(g => g.Name).First().Id.ToString());
+
                 _isPopulatingPermissions = false;
             });
         }
 
-        private void ServerFilter_Changed(object sender, SelectionChangedEventArgs e)
+        private void ShowPermissionDetail(string guildId)
         {
-            if (ServerFilterBox.SelectedItem is ComboBoxItem item && item.Tag is string tag)
-            {
-                _isPopulatingPermissions = true;
-                RenderPermissionCards(tag);
-                _isPopulatingPermissions = false;
-            }
-        }
+            _selectedPermissionGuildId = guildId;
+            var guild = _permissionGuilds.FirstOrDefault(g => g.Id.ToString() == guildId);
+            if (guild == null) return;
 
-        private void RenderPermissionCards(string filterTag)
-        {
-            ServerCardsContainer.Children.Clear();
-            var guilds = filterTag == "ALL"
-                ? _permissionGuilds
-                : _permissionGuilds.Where(g => g.Id.ToString() == filterTag).ToList();
+            DetailTitle.Text = guild.Name;
+            DetailCard.Visibility = Visibility.Visible;
 
-            foreach (var guild in guilds)
+            _isPopulatingPermissions = true;
+            DetailChannelsPanel.Children.Clear();
+            DetailRolesPanel.Children.Clear();
+
+            // Channels
+            var channels = guild.TextChannels.Cast<Discord.WebSocket.SocketGuildChannel>()
+                .Concat(guild.VoiceChannels.Cast<Discord.WebSocket.SocketGuildChannel>())
+                .OrderBy(c => c.Name).ToList();
+            foreach (var ch in channels)
             {
-                var card = new Border
+                bool isVoice = ch is Discord.WebSocket.SocketVoiceChannel;
+                var row = new Grid();
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var nameText = new TextBlock
                 {
-                    Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
-                    BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(16)
+                    Text = isVoice ? $"🔊 {ch.Name}" : $"# {ch.Name}",
+                    VerticalAlignment = VerticalAlignment.Center
                 };
-                // Use theme resource brush instead of transparent
-                card.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"];
+                Grid.SetColumn(nameText, 0);
+                row.Children.Add(nameText);
 
-                var cardStack = new StackPanel { Spacing = 10 };
-                card.Child = cardStack;
-
-                cardStack.Children.Add(new TextBlock
+                var toggle = new ToggleSwitch
                 {
-                    Text = guild.Name,
-                    FontSize = 16,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-                });
-
-                // Channels
-                cardStack.Children.Add(new TextBlock
-                {
-                    Text = "Channels",
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Opacity = 0.8
-                });
-                var channels = guild.TextChannels.Cast<Discord.WebSocket.SocketGuildChannel>()
-                    .Concat(guild.VoiceChannels.Cast<Discord.WebSocket.SocketGuildChannel>())
-                    .OrderBy(c => c.Name).ToList();
-                var chPanel = new StackPanel { Spacing = 4 };
-                cardStack.Children.Add(chPanel);
-                foreach (var ch in channels)
-                {
-                    bool isVoice = ch is Discord.WebSocket.SocketVoiceChannel;
-                    var row = new Grid();
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-                    var nameText = new TextBlock
-                    {
-                        Text = isVoice ? $"🔊 {ch.Name}" : $"# {ch.Name}",
-                        VerticalAlignment = VerticalAlignment.Center,
-                        Opacity = isVoice ? 0.85 : 1.0
-                    };
-                    Grid.SetColumn(nameText, 0);
-                    row.Children.Add(nameText);
-
-                    var toggle = new ToggleSwitch
-                    {
-                        IsOn = _allowedChannelIds.Contains(ch.Id.ToString()),
-                        OnContent = "",
-                        OffContent = "",
-                        Tag = ch.Id.ToString()
-                    };
-                    toggle.Toggled += ChannelPermission_Toggled;
-                    _channelPermissionToggles[ch.Id.ToString()] = toggle;
-                    Grid.SetColumn(toggle, 1);
-                    row.Children.Add(toggle);
-                    chPanel.Children.Add(row);
-                }
-
-                // Roles
-                cardStack.Children.Add(new TextBlock
-                {
-                    Text = "Roles",
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Opacity = 0.8,
-                    Margin = new Thickness(0, 8, 0, 0)
-                });
-                var roles = guild.Roles.Where(r => !r.IsEveryone).OrderBy(r => r.Name).ToList();
-                var rolePanel = new StackPanel { Spacing = 4 };
-                cardStack.Children.Add(rolePanel);
-                foreach (var role in roles)
-                {
-                    var row = new Grid();
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-                    var swatch = new Border
-                    {
-                        Width = 14,
-                        Height = 14,
-                        CornerRadius = new CornerRadius(7),
-                        Margin = new Thickness(0, 0, 8, 0),
-                        VerticalAlignment = VerticalAlignment.Center
-                    };
-                    var color = role.Color.RawValue == 0
-                        ? Windows.UI.Color.FromArgb(255, 153, 153, 153)
-                        : Windows.UI.Color.FromArgb(255, role.Color.R, role.Color.G, role.Color.B);
-                    swatch.Background = new SolidColorBrush(color);
-                    Grid.SetColumn(swatch, 0);
-                    row.Children.Add(swatch);
-
-                    var nameText = new TextBlock
-                    {
-                        Text = role.Name,
-                        VerticalAlignment = VerticalAlignment.Center
-                    };
-                    Grid.SetColumn(nameText, 1);
-                    row.Children.Add(nameText);
-
-                    var toggle = new ToggleSwitch
-                    {
-                        IsOn = _allowedRoleIds.Contains(role.Id.ToString()),
-                        OnContent = "",
-                        OffContent = "",
-                        Tag = role.Id.ToString()
-                    };
-                    toggle.Toggled += RolePermission_Toggled;
-                    _rolePermissionToggles[role.Id.ToString()] = toggle;
-                    Grid.SetColumn(toggle, 2);
-                    row.Children.Add(toggle);
-                    rolePanel.Children.Add(row);
-                }
-
-                ServerCardsContainer.Children.Add(card);
+                    IsOn = _allowedChannelIds.Contains(ch.Id.ToString()),
+                    OnContent = "",
+                    OffContent = "",
+                    Tag = ch.Id.ToString()
+                };
+                toggle.Toggled += ChannelPermission_Toggled;
+                _channelPermissionToggles[ch.Id.ToString()] = toggle;
+                Grid.SetColumn(toggle, 1);
+                row.Children.Add(toggle);
+                DetailChannelsPanel.Children.Add(row);
             }
+
+            // Roles
+            foreach (var role in guild.Roles.Where(r => !r.IsEveryone).OrderBy(r => r.Name))
+            {
+                var row = new Grid();
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var swatch = new Border
+                {
+                    Width = 14,
+                    Height = 14,
+                    CornerRadius = new CornerRadius(7),
+                    Margin = new Thickness(0, 0, 8, 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                var color = role.Color.RawValue == 0
+                    ? Windows.UI.Color.FromArgb(255, 153, 153, 153)
+                    : Windows.UI.Color.FromArgb(255, role.Color.R, role.Color.G, role.Color.B);
+                swatch.Background = new SolidColorBrush(color);
+                Grid.SetColumn(swatch, 0);
+                row.Children.Add(swatch);
+
+                var nameText = new TextBlock
+                {
+                    Text = role.Name,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(nameText, 1);
+                row.Children.Add(nameText);
+
+                var toggle = new ToggleSwitch
+                {
+                    IsOn = _allowedRoleIds.Contains(role.Id.ToString()),
+                    OnContent = "",
+                    OffContent = "",
+                    Tag = role.Id.ToString()
+                };
+                toggle.Toggled += RolePermission_Toggled;
+                _rolePermissionToggles[role.Id.ToString()] = toggle;
+                Grid.SetColumn(toggle, 2);
+                row.Children.Add(toggle);
+                DetailRolesPanel.Children.Add(row);
+            }
+
+            _isPopulatingPermissions = false;
         }
 
         private void ChannelPermission_Toggled(object sender, RoutedEventArgs e)
