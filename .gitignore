@@ -364,3 +364,5 @@ FodyWeavers.xsd
 
 # Inno Setup files
 *.iss
+# Release zips
+*.zip
