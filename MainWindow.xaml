@@ -128,9 +128,14 @@
                                 <StackPanel Spacing="10">
                                     <TextBlock x:Name="DetailTitle" FontSize="16" FontWeight="SemiBold"/>
                                     <Pivot x:Name="PermissionPivot">
-                                        <PivotItem Header="Channels">
+                                        <PivotItem Header="Text Channels">
                                             <ScrollViewer MaxHeight="360">
-                                                <StackPanel x:Name="DetailChannelsPanel" Spacing="4"/>
+                                                <StackPanel x:Name="DetailTextChannelsPanel" Spacing="4"/>
+                                            </ScrollViewer>
+                                        </PivotItem>
+                                        <PivotItem Header="Voice Channels">
+                                            <ScrollViewer MaxHeight="360">
+                                                <StackPanel x:Name="DetailVoiceChannelsPanel" Spacing="4"/>
                                             </ScrollViewer>
                                         </PivotItem>
                                         <PivotItem Header="Roles">
@@ -156,7 +161,7 @@
                                 </StackPanel>
                             </Expander>
 
-                            <Button Content="Clear all restrictions (Open Mode)" Click="ClearPermissions_Click" HorizontalAlignment="Left"/>
+                            <Button Content="Allow all (Open Mode)" Click="ClearPermissions_Click" HorizontalAlignment="Left"/>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>

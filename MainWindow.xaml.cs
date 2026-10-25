@@ -169,6 +169,9 @@ namespace JakeyTTS.DiscordBridge
                         + guild.VoiceChannels.Count(c => _allowedChannelIds.Contains(c.Id.ToString()))
                         + guild.Roles.Count(r => !r.IsEveryone && _allowedRoleIds.Contains(r.Id.ToString()));
 
+                    bool openMode = _allowedChannelIds.Count == 0 && _allowedRoleIds.Count == 0;
+                    string allowedText = openMode ? "all" : allowedCount.ToString();
+
                     var card = new Border
                     {
                         Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
@@ -195,7 +198,7 @@ namespace JakeyTTS.DiscordBridge
                     info.Children.Add(new TextBlock { Text = guild.Name, FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
                     info.Children.Add(new TextBlock
                     {
-                        Text = $"Channels: {chCount}    Voice: {voiceCount}    Allowed: {(allowedCount == 0 ? "none" : allowedCount.ToString())}",
+                        Text = $"Channels: {chCount}    Voice: {voiceCount}    Allowed: {allowedText}",
                         FontSize = 12,
                         Opacity = 0.7
                     });
@@ -232,23 +235,20 @@ namespace JakeyTTS.DiscordBridge
             DetailCard.Visibility = Visibility.Visible;
 
             _isPopulatingPermissions = true;
-            DetailChannelsPanel.Children.Clear();
+            DetailTextChannelsPanel.Children.Clear();
+            DetailVoiceChannelsPanel.Children.Clear();
             DetailRolesPanel.Children.Clear();
 
-            // Channels
-            var channels = guild.TextChannels.Cast<Discord.WebSocket.SocketGuildChannel>()
-                .Concat(guild.VoiceChannels.Cast<Discord.WebSocket.SocketGuildChannel>())
-                .OrderBy(c => c.Name).ToList();
-            foreach (var ch in channels)
+            // Text channels
+            foreach (var ch in guild.TextChannels.OrderBy(c => c.Name))
             {
-                bool isVoice = ch is Discord.WebSocket.SocketVoiceChannel;
                 var row = new Grid();
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
                 var nameText = new TextBlock
                 {
-                    Text = isVoice ? $"🔊 {ch.Name}" : $"# {ch.Name}",
+                    Text = $"# {ch.Name}",
                     VerticalAlignment = VerticalAlignment.Center
                 };
                 Grid.SetColumn(nameText, 0);
@@ -265,7 +265,36 @@ namespace JakeyTTS.DiscordBridge
                 _channelPermissionToggles[ch.Id.ToString()] = toggle;
                 Grid.SetColumn(toggle, 1);
                 row.Children.Add(toggle);
-                DetailChannelsPanel.Children.Add(row);
+                DetailTextChannelsPanel.Children.Add(row);
+            }
+
+            // Voice channels
+            foreach (var ch in guild.VoiceChannels.OrderBy(c => c.Name))
+            {
+                var row = new Grid();
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var nameText = new TextBlock
+                {
+                    Text = $"🔊 {ch.Name}",
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(nameText, 0);
+                row.Children.Add(nameText);
+
+                var toggle = new ToggleSwitch
+                {
+                    IsOn = _allowedChannelIds.Contains(ch.Id.ToString()),
+                    OnContent = "",
+                    OffContent = "",
+                    Tag = ch.Id.ToString()
+                };
+                toggle.Toggled += ChannelPermission_Toggled;
+                _channelPermissionToggles[ch.Id.ToString()] = toggle;
+                Grid.SetColumn(toggle, 1);
+                row.Children.Add(toggle);
+                DetailVoiceChannelsPanel.Children.Add(row);
             }
 
             // Roles
