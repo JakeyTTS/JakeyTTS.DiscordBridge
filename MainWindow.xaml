@@ -26,11 +26,16 @@
             <TextBlock Grid.Column="1" Text="JakeyTTS - Discord Bridge" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </Grid>
 
-        <NavigationView x:Name="NavView" Grid.Row="1" ItemInvoked="NavView_ItemInvoked" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" Background="Transparent">
+        <NavigationView x:Name="NavView" Grid.Row="1" ItemInvoked="NavView_ItemInvoked" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" Background="Transparent" IsTitleBarAutoPaddingEnabled="False">
             <NavigationView.MenuItems>
                 <NavigationViewItem Tag="Home" Content="Dashboard" Icon="Home" />
                 <NavigationViewItem Tag="Events" Content="Broadcast Events" Icon="Audio" />
                 <NavigationViewItem Tag="Commands" Content="Discord Commands" Icon="Message" />
+                <NavigationViewItem Tag="Permissions" Content="Access &amp; Security">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE72E;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
 
             <Grid Padding="30">
@@ -109,26 +114,59 @@
                                 </StackPanel>
                             </Border>
 
-                            <TextBlock Text="Access &amp; Security Permissions Data" Style="{StaticResource BodyTextBlockStyle}" FontWeight="SemiBold" Margin="0,10,0,0"/>
-                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
-                                <StackPanel Spacing="15">
-                                    <TextBox x:Name="AllowedChannelsBox" 
-                             Header="Allowed Channel IDs (Leave empty for all)" 
-                             PlaceholderText="e.g., 1122334455667788, 9988776655443322" 
-                             LostFocus="Permissions_Changed"/>
-
-                                    <TextBox x:Name="AllowedRolesBox" 
-                             Header="Allowed Role IDs (Leave empty for all)" 
-                             PlaceholderText="e.g., 5544332211009988, 1122446688001122" 
-                             LostFocus="Permissions_Changed"/>
-
-                                    <TextBlock Text="ℹ Leave fields blank to allow unrestricted use across the entire server. Separate multiple IDs with commas." 
-                               FontSize="12" Opacity="0.6" TextWrapping="Wrap"/>
-                                </StackPanel>
-                            </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
+                <Grid x:Name="PermissionsPage" Visibility="Collapsed">
+                    <ScrollViewer>
+                        <StackPanel Spacing="20" MaxWidth="900" HorizontalAlignment="Left">
+                            <TextBlock Text="Access &amp; Security Permissions" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="PermissionsStatusText" Text="Connect to Discord to load channels and roles." FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+
+                            <StackPanel x:Name="ServerSummaryCards" Spacing="8"/>
+                            <Border x:Name="DetailCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16" Visibility="Collapsed">
+                                <StackPanel Spacing="10">
+                                    <TextBlock x:Name="DetailTitle" FontSize="16" FontWeight="SemiBold"/>
+                                    <ToggleSwitch x:Name="RestrictAccessToggle" Header="Restrict access to selected channels/roles" Toggled="RestrictAccess_Toggled"/>
+                                    <Pivot x:Name="PermissionPivot">
+                                        <PivotItem Header="Text Channels">
+                                            <ScrollViewer MaxHeight="360">
+                                                <StackPanel x:Name="DetailTextChannelsPanel" Spacing="4"/>
+                                            </ScrollViewer>
+                                        </PivotItem>
+                                        <PivotItem Header="Voice Channels">
+                                            <ScrollViewer MaxHeight="360">
+                                                <StackPanel x:Name="DetailVoiceChannelsPanel" Spacing="4"/>
+                                            </ScrollViewer>
+                                        </PivotItem>
+                                        <PivotItem Header="Roles">
+                                            <ScrollViewer MaxHeight="360">
+                                                <StackPanel x:Name="DetailRolesPanel" Spacing="4"/>
+                                            </ScrollViewer>
+                                        </PivotItem>
+                                    </Pivot>
+                                </StackPanel>
+                            </Border>
+
+                            <Expander Header="Manual ID entry (advanced)">
+                                <StackPanel Spacing="12" Padding="8">
+                                    <TextBox x:Name="AllowedChannelsBox"
+                              Header="Allowed Channel IDs (Leave empty for all)"
+                              PlaceholderText="e.g., 1122334455667788, 9988776655443322"
+                              LostFocus="Permissions_Changed"/>
+                                    <TextBox x:Name="AllowedRolesBox"
+                              Header="Allowed Role IDs (Leave empty for all)"
+                              PlaceholderText="e.g., 5544332211009988, 1122446688001122"
+                              LostFocus="Permissions_Changed"/>
+                                    <TextBlock Text="Leave fields blank to allow unrestricted use across the entire server. Separate multiple IDs with commas." FontSize="12" Opacity="0.6" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Expander>
+
+                            <Button Content="Allow all (Open Mode)" Click="ClearPermissions_Click" HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
 
                 <Grid x:Name="SettingsPage" Visibility="Collapsed">
                     <ScrollViewer>
