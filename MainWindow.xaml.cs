@@ -56,6 +56,9 @@ namespace JakeyTTS.DiscordBridge
         // Persistencia local de restricciones de seguridad
         private List<string> _allowedChannelIds = new();
         private List<string> _allowedRoleIds = new();
+        private readonly Dictionary<string, ToggleSwitch> _channelPermissionToggles = new();
+        private readonly Dictionary<string, ToggleSwitch> _rolePermissionToggles = new();
+        private bool _isPopulatingPermissions = false;
 
         public MainWindow()
         {
@@ -114,6 +117,13 @@ namespace JakeyTTS.DiscordBridge
 
             AppSettings.Set("AllowedChannels", string.Join(",", _allowedChannelIds));
             AppSettings.Set("AllowedRoles", string.Join(",", _allowedRoleIds));
+
+            _isPopulatingPermissions = true;
+            foreach (var kvp in _channelPermissionToggles)
+                kvp.Value.IsOn = _allowedChannelIds.Contains(kvp.Key);
+            foreach (var kvp in _rolePermissionToggles)
+                kvp.Value.IsOn = _allowedRoleIds.Contains(kvp.Key);
+            _isPopulatingPermissions = false;
         }
 
         private void SavePermissions()
@@ -126,6 +136,174 @@ namespace JakeyTTS.DiscordBridge
                 AllowedChannelsBox.Text = string.Join(", ", _allowedChannelIds);
                 AllowedRolesBox.Text = string.Join(", ", _allowedRoleIds);
             });
+        }
+
+        private void LoadPermissionCandidates()
+        {
+            _dispatcher.TryEnqueue(() =>
+            {
+                _isPopulatingPermissions = true;
+                ChannelsContainer.Children.Clear();
+                RolesContainer.Children.Clear();
+                _channelPermissionToggles.Clear();
+                _rolePermissionToggles.Clear();
+
+                if (_discordClient?.Guilds == null || !_discordClient.Guilds.Any())
+                {
+                    PermissionsStatusText.Text = "Connect to Discord to load channels and roles.";
+                    _isPopulatingPermissions = false;
+                    return;
+                }
+                PermissionsStatusText.Text = "";
+
+                foreach (var guild in _discordClient.Guilds.OrderBy(g => g.Name))
+                {
+                    var channels = guild.TextChannels.OrderBy(c => c.Name).ToList();
+                    if (channels.Any())
+                    {
+                        ChannelsContainer.Children.Add(new TextBlock
+                        {
+                            Text = guild.Name,
+                            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                            Margin = new Thickness(0, 8, 0, 4)
+                        });
+                        var chPanel = new StackPanel { Spacing = 4 };
+                        ChannelsContainer.Children.Add(chPanel);
+                        foreach (var ch in channels)
+                        {
+                            var row = new Grid();
+                            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                            var nameText = new TextBlock
+                            {
+                                Text = $"# {ch.Name}",
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
+                            Grid.SetColumn(nameText, 0);
+                            row.Children.Add(nameText);
+
+                            var toggle = new ToggleSwitch
+                            {
+                                IsOn = _allowedChannelIds.Contains(ch.Id.ToString()),
+                                OnContent = "",
+                                OffContent = "",
+                                Tag = ch.Id.ToString()
+                            };
+                            toggle.Toggled += ChannelPermission_Toggled;
+                            _channelPermissionToggles[ch.Id.ToString()] = toggle;
+                            Grid.SetColumn(toggle, 1);
+                            row.Children.Add(toggle);
+                            chPanel.Children.Add(row);
+                        }
+                    }
+
+                    var roles = guild.Roles.Where(r => !r.IsEveryone).OrderBy(r => r.Name).ToList();
+                    if (roles.Any())
+                    {
+                        RolesContainer.Children.Add(new TextBlock
+                        {
+                            Text = guild.Name,
+                            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                            Margin = new Thickness(0, 8, 0, 4)
+                        });
+                        var rolePanel = new StackPanel { Spacing = 4 };
+                        RolesContainer.Children.Add(rolePanel);
+                        foreach (var role in roles)
+                        {
+                            var row = new Grid();
+                            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                            var swatch = new Border
+                            {
+                                Width = 14,
+                                Height = 14,
+                                CornerRadius = new CornerRadius(7),
+                                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, role.Color.R, role.Color.G, role.Color.B)),
+                                Margin = new Thickness(0, 0, 8, 0),
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
+                            if (role.Color.RawValue == 0)
+                            {
+                                swatch.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 153, 153, 153));
+                            }
+                            Grid.SetColumn(swatch, 0);
+                            row.Children.Add(swatch);
+
+                            var nameText = new TextBlock
+                            {
+                                Text = role.Name,
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
+                            Grid.SetColumn(nameText, 1);
+                            row.Children.Add(nameText);
+
+                            var toggle = new ToggleSwitch
+                            {
+                                IsOn = _allowedRoleIds.Contains(role.Id.ToString()),
+                                OnContent = "",
+                                OffContent = "",
+                                Tag = role.Id.ToString()
+                            };
+                            toggle.Toggled += RolePermission_Toggled;
+                            _rolePermissionToggles[role.Id.ToString()] = toggle;
+                            Grid.SetColumn(toggle, 2);
+                            row.Children.Add(toggle);
+                            rolePanel.Children.Add(row);
+                        }
+                    }
+                }
+
+                _isPopulatingPermissions = false;
+            });
+        }
+
+        private void ChannelPermission_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_isPopulatingPermissions) return;
+            if (sender is ToggleSwitch toggle && toggle.Tag is string id)
+            {
+                if (toggle.IsOn)
+                {
+                    if (!_allowedChannelIds.Contains(id)) _allowedChannelIds.Add(id);
+                }
+                else
+                {
+                    _allowedChannelIds.Remove(id);
+                }
+                SavePermissions();
+            }
+        }
+
+        private void RolePermission_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_isPopulatingPermissions) return;
+            if (sender is ToggleSwitch toggle && toggle.Tag is string id)
+            {
+                if (toggle.IsOn)
+                {
+                    if (!_allowedRoleIds.Contains(id)) _allowedRoleIds.Add(id);
+                }
+                else
+                {
+                    _allowedRoleIds.Remove(id);
+                }
+                SavePermissions();
+            }
+        }
+
+        private async void ClearPermissions_Click(object sender, RoutedEventArgs e)
+        {
+            _allowedChannelIds.Clear();
+            _allowedRoleIds.Clear();
+            SavePermissions();
+            _isPopulatingPermissions = true;
+            foreach (var t in _channelPermissionToggles.Values) t.IsOn = false;
+            foreach (var t in _rolePermissionToggles.Values) t.IsOn = false;
+            _isPopulatingPermissions = false;
+            Log("🛡 Permission barriers cleaned. System running in Unrestricted Access Mode.");
         }
 
         // CORRECCIÓN: Restaurado el método LogUI nativo que faltaba en el contexto de compilación
@@ -141,6 +319,7 @@ namespace JakeyTTS.DiscordBridge
             EventsPage.Visibility = Visibility.Collapsed;
             SettingsPage.Visibility = Visibility.Collapsed;
             CommandsPage.Visibility = Visibility.Collapsed;
+            PermissionsPage.Visibility = Visibility.Collapsed;
 
             if (args.IsSettingsInvoked) SettingsPage.Visibility = Visibility.Visible;
             else if (args.InvokedItemContainer?.Tag is string tag)
@@ -148,6 +327,7 @@ namespace JakeyTTS.DiscordBridge
                 if (tag == "Home") HomePage.Visibility = Visibility.Visible;
                 if (tag == "Events") EventsPage.Visibility = Visibility.Visible;
                 if (tag == "Commands") CommandsPage.Visibility = Visibility.Visible;
+                if (tag == "Permissions") { PermissionsPage.Visibility = Visibility.Visible; if (_discordClient?.ConnectionState == ConnectionState.Connected) LoadPermissionCandidates(); }
             }
         }
 
@@ -358,7 +538,7 @@ namespace JakeyTTS.DiscordBridge
             {
                 _discordClient = new DiscordSocketClient(new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildVoiceStates, EnableVoiceDaveEncryption = true });
                 _discordClient.Connected += () => { _dispatcher.TryEnqueue(() => DiscordStatusDot.Fill = new SolidColorBrush(Colors.Green)); return Task.CompletedTask; };
-                _discordClient.Ready += async () => { await RegisterSlashCommands(); };
+                _discordClient.Ready += async () => { await RegisterSlashCommands(); LoadPermissionCandidates(); };
                 _discordClient.SlashCommandExecuted += async (cmd) => {
 
                     // 1. EVALUAR COMANDOS DE BARRA ADMINISTRATIVOS (Requieren privilegios de Administrador del servidor)
