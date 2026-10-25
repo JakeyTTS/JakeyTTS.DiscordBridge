@@ -60,6 +60,7 @@ namespace JakeyTTS.DiscordBridge
         private readonly Dictionary<string, ToggleSwitch> _rolePermissionToggles = new();
         private bool _isPopulatingPermissions = false;
         private readonly List<Discord.WebSocket.SocketGuild> _permissionGuilds = new();
+        private readonly Dictionary<string, Border> _serverSummaryCards = new();
 
         public MainWindow()
         {
@@ -147,6 +148,7 @@ namespace JakeyTTS.DiscordBridge
             {
                 _isPopulatingPermissions = true;
                 ServerSummaryCards.Children.Clear();
+                _serverSummaryCards.Clear();
                 DetailCard.Visibility = Visibility.Collapsed;
                 _channelPermissionToggles.Clear();
                 _rolePermissionToggles.Clear();
@@ -216,10 +218,14 @@ namespace JakeyTTS.DiscordBridge
                     card.IsTapEnabled = true;
 
                     ServerSummaryCards.Children.Add(card);
+                    _serverSummaryCards[guild.Id.ToString()] = card;
                 }
 
                 if (_permissionGuilds.Any())
+                {
                     ShowPermissionDetail(_permissionGuilds.OrderBy(g => g.Name).First().Id.ToString());
+                    UpdateSelectedServerCardBorder();
+                }
 
                 _isPopulatingPermissions = true;
                 RestrictAccessToggle.IsOn = _allowedChannelIds.Any() || _allowedRoleIds.Any();
@@ -347,7 +353,20 @@ namespace JakeyTTS.DiscordBridge
                 DetailRolesPanel.Children.Add(row);
             }
 
+            UpdateSelectedServerCardBorder();
             _isPopulatingPermissions = false;
+        }
+
+        private void UpdateSelectedServerCardBorder()
+        {
+            foreach (var kvp in _serverSummaryCards)
+            {
+                bool selected = kvp.Key == _selectedPermissionGuildId;
+                kvp.Value.BorderBrush = selected
+                    ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
+                    : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"];
+                kvp.Value.BorderThickness = selected ? new Thickness(2) : new Thickness(1);
+            }
         }
 
         private void ChannelPermission_Toggled(object sender, RoutedEventArgs e)
