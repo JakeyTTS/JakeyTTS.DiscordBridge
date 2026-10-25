@@ -221,6 +221,8 @@ namespace JakeyTTS.DiscordBridge
                 if (_permissionGuilds.Any())
                     ShowPermissionDetail(_permissionGuilds.OrderBy(g => g.Name).First().Id.ToString());
 
+                _isPopulatingPermissions = true;
+                RestrictAccessToggle.IsOn = _allowedChannelIds.Any() || _allowedRoleIds.Any();
                 _isPopulatingPermissions = false;
             });
         }
@@ -256,7 +258,8 @@ namespace JakeyTTS.DiscordBridge
 
                 var toggle = new ToggleSwitch
                 {
-                    IsOn = _allowedChannelIds.Contains(ch.Id.ToString()),
+                    IsOn = RestrictAccessToggle.IsOn ? _allowedChannelIds.Contains(ch.Id.ToString()) : true,
+                    IsEnabled = RestrictAccessToggle.IsOn,
                     OnContent = "",
                     OffContent = "",
                     Tag = ch.Id.ToString()
@@ -285,7 +288,8 @@ namespace JakeyTTS.DiscordBridge
 
                 var toggle = new ToggleSwitch
                 {
-                    IsOn = _allowedChannelIds.Contains(ch.Id.ToString()),
+                    IsOn = RestrictAccessToggle.IsOn ? _allowedChannelIds.Contains(ch.Id.ToString()) : true,
+                    IsEnabled = RestrictAccessToggle.IsOn,
                     OnContent = "",
                     OffContent = "",
                     Tag = ch.Id.ToString()
@@ -330,7 +334,8 @@ namespace JakeyTTS.DiscordBridge
 
                 var toggle = new ToggleSwitch
                 {
-                    IsOn = _allowedRoleIds.Contains(role.Id.ToString()),
+                    IsOn = RestrictAccessToggle.IsOn ? _allowedRoleIds.Contains(role.Id.ToString()) : true,
+                    IsEnabled = RestrictAccessToggle.IsOn,
                     OnContent = "",
                     OffContent = "",
                     Tag = role.Id.ToString()
@@ -348,6 +353,7 @@ namespace JakeyTTS.DiscordBridge
         private void ChannelPermission_Toggled(object sender, RoutedEventArgs e)
         {
             if (_isPopulatingPermissions) return;
+            if (!RestrictAccessToggle.IsOn) return;
             if (sender is ToggleSwitch toggle && toggle.Tag is string id)
             {
                 if (toggle.IsOn)
@@ -365,6 +371,7 @@ namespace JakeyTTS.DiscordBridge
         private void RolePermission_Toggled(object sender, RoutedEventArgs e)
         {
             if (_isPopulatingPermissions) return;
+            if (!RestrictAccessToggle.IsOn) return;
             if (sender is ToggleSwitch toggle && toggle.Tag is string id)
             {
                 if (toggle.IsOn)
@@ -379,11 +386,39 @@ namespace JakeyTTS.DiscordBridge
             }
         }
 
+        private void RestrictAccess_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_isPopulatingPermissions) return;
+            if (RestrictAccessToggle.IsOn)
+            {
+                if (_allowedChannelIds.Count == 0 && _allowedRoleIds.Count == 0)
+                {
+                    foreach (var g in _permissionGuilds)
+                    {
+                        foreach (var c in g.TextChannels) _allowedChannelIds.Add(c.Id.ToString());
+                        foreach (var c in g.VoiceChannels) _allowedChannelIds.Add(c.Id.ToString());
+                        foreach (var r in g.Roles.Where(r => !r.IsEveryone)) _allowedRoleIds.Add(r.Id.ToString());
+                    }
+                    SavePermissions();
+                }
+            }
+            else
+            {
+                _allowedChannelIds.Clear();
+                _allowedRoleIds.Clear();
+                SavePermissions();
+            }
+            LoadPermissionCandidates();
+        }
+
         private async void ClearPermissions_Click(object sender, RoutedEventArgs e)
         {
             _allowedChannelIds.Clear();
             _allowedRoleIds.Clear();
             SavePermissions();
+            _isPopulatingPermissions = true;
+            RestrictAccessToggle.IsOn = false;
+            _isPopulatingPermissions = false;
             _isPopulatingPermissions = true;
             foreach (var t in _channelPermissionToggles.Values) t.IsOn = false;
             foreach (var t in _rolePermissionToggles.Values) t.IsOn = false;

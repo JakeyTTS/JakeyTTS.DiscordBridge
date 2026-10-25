@@ -123,6 +123,7 @@
                             <TextBlock Text="Access &amp; Security Permissions" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
                             <TextBlock x:Name="PermissionsStatusText" Text="Connect to Discord to load channels and roles." FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
 
+                            <ToggleSwitch x:Name="RestrictAccessToggle" Header="Restrict access to selected channels/roles" Toggled="RestrictAccess_Toggled"/>
                             <StackPanel x:Name="ServerSummaryCards" Spacing="8"/>
                             <Border x:Name="DetailCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16" Visibility="Collapsed">
                                 <StackPanel Spacing="10">
