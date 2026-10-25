@@ -61,6 +61,8 @@ namespace JakeyTTS.DiscordBridge
         {
             this.InitializeComponent();
             _dispatcher = this.DispatcherQueue;
+            try { VersionText.Text = $"Version {System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}"; } catch { }
+            try { this.AppWindow.SetIcon(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "app.ico")); } catch { }
             LoadAppIcon();
 
             ExtendsContentIntoTitleBar = true;
@@ -354,7 +356,7 @@ namespace JakeyTTS.DiscordBridge
         {
             try
             {
-                _discordClient = new DiscordSocketClient(new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildVoiceStates });
+                _discordClient = new DiscordSocketClient(new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildVoiceStates, EnableVoiceDaveEncryption = true });
                 _discordClient.Connected += () => { _dispatcher.TryEnqueue(() => DiscordStatusDot.Fill = new SolidColorBrush(Colors.Green)); return Task.CompletedTask; };
                 _discordClient.Ready += async () => { await RegisterSlashCommands(); };
                 _discordClient.SlashCommandExecuted += async (cmd) => {
@@ -500,7 +502,7 @@ namespace JakeyTTS.DiscordBridge
     }
 
     #region Models
-    public class PluginRegisterPayload { public string id { get; set; } = ""; public string name { get; set; } = ""; [JsonPropertyName("icon")] public string icon { get; set; } = ""; public string version { get; set; } = "1.0.0"; public string protocol_version { get; set; } = "1.0"; public string[] subscriptions { get; set; } = Array.Empty<string>(); public string executable_path { get; set; } = ""; public bool launch_invisible { get; set; } = false; }
+    public class PluginRegisterPayload { public string id { get; set; } = ""; public string name { get; set; } = ""; [JsonPropertyName("icon")] public string icon { get; set; } = ""; public string version { get; set; } = "1.1.0"; public string protocol_version { get; set; } = "1.0"; public string[] subscriptions { get; set; } = Array.Empty<string>(); public string executable_path { get; set; } = ""; public bool launch_invisible { get; set; } = false; }
     public class PluginRegisterMsg { public string type { get; set; } = "register"; public PluginRegisterPayload payload { get; set; } = new(); }
     public class TtsRequestPayload { public string text { get; set; } = ""; public string voice { get; set; } = "default"; public float speed { get; set; } = 1.0f; }
     public class TtsRequestMsg { public string type { get; set; } = "tts_request"; public string request_id { get; set; } = ""; public TtsRequestPayload payload { get; set; } = new(); }

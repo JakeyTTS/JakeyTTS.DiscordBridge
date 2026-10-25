@@ -166,6 +166,7 @@
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="Info" FontWeight="Bold"/>
                                     <TextBlock Text="Commands are registered as Global Slash Commands (/). Click Sync to update them." FontSize="13"/>
+                                    <TextBlock x:Name="VersionText" Text="Version" FontSize="12" Opacity="0.6"/>
                                     <HyperlinkButton Content="Discord Developer Portal" Click="OpenPortalBtn_Click" FontSize="12"/>
                                 </StackPanel>
                             </Border>
